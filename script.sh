@@ -268,6 +268,8 @@ RUN echo "Pin-Priority: 500" >> /etc/apt/preferences.d/travis_debian_net
 EOF
 fi
 
+# workaround for PKG_CONFIG_PATH for broken Makefiles
+TARGET_PKG_CONFIG_PATH="/usr/lib/$(dpkg-architecture -a${TRAVIS_DEBIAN_TARGET_ARCH} -qDEB_HOST_MULTIARCH)/pkgconfig"
 cat >>Dockerfile <<EOF
 RUN env DEBIAN_FRONTEND=noninteractive mk-build-deps --host-arch ${TRAVIS_DEBIAN_TARGET_ARCH} --install --remove --tool 'apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends --yes' debian/control
 
@@ -279,7 +281,7 @@ RUN git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 RUN git fetch
 RUN for X in \$(git branch -r | grep -v HEAD); do git branch --track \$(echo "\${X}" | perl -pe 's:^.*?/::') \${X} || true; done
 
-CMD ${TRAVIS_DEBIAN_GIT_BUILDPACKAGE} ${TRAVIS_DEBIAN_GIT_BUILDPACKAGE_OPTIONS} --git-ignore-branch --git-export-dir=${TRAVIS_DEBIAN_BUILD_DIR} --git-builder='debuild -i -I -uc -us -sa -a${TRAVIS_DEBIAN_TARGET_ARCH}'
+CMD ${TRAVIS_DEBIAN_GIT_BUILDPACKAGE} ${TRAVIS_DEBIAN_GIT_BUILDPACKAGE_OPTIONS} --git-ignore-branch --git-export-dir=${TRAVIS_DEBIAN_BUILD_DIR} --git-builder='debuild -ePKG_CONFIG_PATH=${TARGET_PKG_CONFIG_PATH} -i -I -uc -us -sa -a${TRAVIS_DEBIAN_TARGET_ARCH}'
 EOF
 
 Info "Using Dockerfile:"
