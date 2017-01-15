@@ -51,6 +51,7 @@ TRAVIS_DEBIAN_BUILD_DIR="${TRAVIS_DEBIAN_BUILD_DIR:-/build}"
 TRAVIS_DEBIAN_TARGET_DIR="${TRAVIS_DEBIAN_TARGET_DIR:-../}"
 TRAVIS_DEBIAN_NETWORK_ENABLED="${TRAVIS_DEBIAN_NETWORK_ENABLED:-false}"
 TRAVIS_DEBIAN_INCREMENT_VERSION_NUMBER="${TRAVIS_DEBIAN_INCREMENT_VERSION_NUMBER:-false}"
+TRAVIS_DEBIAN_TARGET_ARCH="${TRAVIS_DEBIAN_TARGET_ARCH:-$(dpkg --print-architecture)}"
 
 #### Distribution #############################################################
 
@@ -146,6 +147,7 @@ fi
 ## Print configuration ########################################################
 
 Info "Using distribution: ${TRAVIS_DEBIAN_DISTRIBUTION}"
+Info "Building for architecture: ${TRAVIS_DEBIAN_TARGET_ARCH}"
 Info "Backports enabled: ${TRAVIS_DEBIAN_BACKPORTS}"
 Info "Experimental enabled: ${TRAVIS_DEBIAN_EXPERIMENTAL}"
 Info "Security updates enabled: ${TRAVIS_DEBIAN_SECURITY_UPDATES}"
@@ -211,6 +213,13 @@ RUN echo "deb-src ${TRAVIS_DEBIAN_MIRROR} experimental main" >> /etc/apt/sources
 EOF
 fi
 
+if [ "${TRAVIS_DEBIAN_TARGET_ARCH}" != "$(dpkg --print-architecture)" ]
+then
+	cat >>Dockerfile <<EOF
+RUN dpkg --add-architecture ${TRAVIS_DEBIAN_TARGET_ARCH}
+EOF
+fi
+
 EXTRA_PACKAGES=""
 
 case "${TRAVIS_DEBIAN_EXTRA_REPOSITORY:-}" in
@@ -260,7 +269,7 @@ EOF
 fi
 
 cat >>Dockerfile <<EOF
-RUN env DEBIAN_FRONTEND=noninteractive mk-build-deps --install --remove --tool 'apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends --yes' debian/control
+RUN env DEBIAN_FRONTEND=noninteractive mk-build-deps --host-arch ${TRAVIS_DEBIAN_TARGET_ARCH} --install --remove --tool 'apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends --yes' debian/control
 
 RUN rm -f Dockerfile
 RUN git checkout .travis.yml || true
@@ -270,7 +279,7 @@ RUN git config remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
 RUN git fetch
 RUN for X in \$(git branch -r | grep -v HEAD); do git branch --track \$(echo "\${X}" | perl -pe 's:^.*?/::') \${X} || true; done
 
-CMD ${TRAVIS_DEBIAN_GIT_BUILDPACKAGE} ${TRAVIS_DEBIAN_GIT_BUILDPACKAGE_OPTIONS} --git-ignore-branch --git-export-dir=${TRAVIS_DEBIAN_BUILD_DIR} --git-builder='debuild -i -I -uc -us -sa'
+CMD ${TRAVIS_DEBIAN_GIT_BUILDPACKAGE} ${TRAVIS_DEBIAN_GIT_BUILDPACKAGE_OPTIONS} --git-ignore-branch --git-export-dir=${TRAVIS_DEBIAN_BUILD_DIR} --git-builder='debuild -i -I -uc -us -sa -a${TRAVIS_DEBIAN_TARGET_ARCH}'
 EOF
 
 Info "Using Dockerfile:"
